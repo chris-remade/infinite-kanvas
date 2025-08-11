@@ -3351,6 +3351,7 @@ export default function OverlayPage() {
                           const prevStyle = styleModels.find(
                             (model) => model.id === previousStyleId,
                           );
+
                           if (prevStyle) {
                             setGenerationSettings({
                               ...generationSettings,
