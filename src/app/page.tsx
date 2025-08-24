@@ -117,6 +117,8 @@ import { Switch } from "@/components/ui/switch";
 import { GithubBadge } from "@/components/canvas/GithubBadge";
 import { GenerationsIndicator } from "@/components/generations-indicator";
 
+import { ChatInterface } from "@/components/chat/ChatInterface";
+
 export default function OverlayPage() {
   const { theme, setTheme } = useTheme();
   const [images, setImages] = useState<PlacedImage[]>([]);
@@ -229,6 +231,8 @@ export default function OverlayPage() {
 
   // Track when generation completes
   const [previousGenerationCount, setPreviousGenerationCount] = useState(0);
+
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   useEffect(() => {
     const currentCount =
@@ -3581,6 +3585,12 @@ export default function OverlayPage() {
               selectedIds.includes(img.id),
             )}
             viewport={viewport}
+          />
+
+          {/* Add the chat interface here */}
+          <ChatInterface
+            isOpen={isChatOpen}
+            onToggle={() => setIsChatOpen(!isChatOpen)}
           />
         </div>
       </main>
