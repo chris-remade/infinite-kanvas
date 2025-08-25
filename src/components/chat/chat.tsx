@@ -29,6 +29,18 @@ interface ChatProps {
   customApiKey?: string;
 }
 
+interface GenerateImageInput {
+  prompt: string;
+  imageSize?: string;
+}
+
+interface GenerateImageOutput {
+  url: string;
+  width: number;
+  height: number;
+  seed?: number;
+}
+
 export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
   const { toast } = useToast();
   const trpc = useTRPC();
@@ -172,7 +184,7 @@ export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
                                 <div className="flex items-center gap-2 ml-6">
                                   <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                                   <span className="text-purple-600 font-medium text-xs">
-                                    Using {styleName} LoRA...
+                                    Using {styleName} Lora
                                   </span>
                                 </div>
                               )}
