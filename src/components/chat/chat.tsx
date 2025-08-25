@@ -9,10 +9,35 @@ import { useState } from "react";
 import { useTRPC } from "@/trpc/client";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from "@/components/ai-elements/conversation";
+import { Message, MessageContent } from "@/components/ai-elements/message";
+import {
+  PromptInput,
+  PromptInputSubmit,
+  PromptInputTextarea,
+} from "@/components/ai-elements/prompt-input";
+import { Response } from "@/components/ai-elements/response";
+import { Loader } from "@/components/ai-elements/loader";
 
 interface ChatProps {
   onImageGenerated?: (imageUrl: string) => void;
   customApiKey?: string;
+}
+
+interface GenerateImageInput {
+  prompt: string;
+  imageSize?: string;
+}
+
+interface GenerateImageOutput {
+  url: string;
+  width: number;
+  height: number;
+  seed?: number;
 }
 
 export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
@@ -22,7 +47,8 @@ export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
     trpc.generateTextToImage.mutationOptions(),
   );
 
-  const { messages, sendMessage, addToolResult, status } = useChat({
+  const { messages, sendMessage, status, addToolResult } = useChat({
+    id: "infinite-kanvas-chat", // This enables persistence
     transport: new DefaultChatTransport({
       api: "/api/chat",
     }),
@@ -39,20 +65,14 @@ export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
       if (toolCall.toolName === "generateTextToImage") {
         try {
           // Extract the tool input with type safety
-          const { prompt, imageSize } = toolCall.input as {
+          const { prompt } = toolCall.input as {
             prompt: string;
-            imageSize?:
-              | "landscape_4_3"
-              | "portrait_4_3"
-              | "square"
-              | "landscape_16_9"
-              | "portrait_16_9";
           };
 
           // Call the tRPC mutation
           const result = await generateTextToImage({
             prompt,
-            imageSize: imageSize || "square",
+            imageSize: "square",
             apiKey: customApiKey,
           });
 
@@ -61,30 +81,14 @@ export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
             onImageGenerated(result.url);
           }
 
-          // Add the result to the chat - no await to avoid deadlocks
+          // ADD THIS: Tell the AI SDK the tool execution is complete
           addToolResult({
             tool: "generateTextToImage",
             toolCallId: toolCall.toolCallId,
-            output: {
-              url: result.url,
-              width: result.width,
-              height: result.height,
-              seed: result.seed,
-            },
+            output: "Image generated and added to canvas",
           });
         } catch (error) {
           console.error("Error generating image:", error);
-
-          // Add error result - no await
-          addToolResult({
-            tool: "generateTextToImage",
-            toolCallId: toolCall.toolCallId,
-            output: null,
-            error:
-              error instanceof Error
-                ? error.message
-                : "Failed to generate image",
-          });
 
           toast({
             title: "Generation failed",
@@ -94,6 +98,9 @@ export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
                 : "Failed to generate image",
             variant: "destructive",
           });
+
+          // Re-throw the error - the AI SDK will handle it
+          throw error;
         }
       }
     },
@@ -101,79 +108,102 @@ export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
 
   const [input, setInput] = useState("");
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim()) {
+      sendMessage({ text: input });
+      setInput("");
+    }
+  };
+
   return (
-    <>
-      {messages.map((message) => (
-        <div key={message.id}>
-          <strong>{`${message.role}: `}</strong>
-          {message.parts.map((part, index) => {
-            switch (part.type) {
-              // Render text parts as simple text
-              case "text":
-                return <span key={index}>{part.text}</span>;
+    <div className="flex flex-col h-full">
+      <Conversation className="flex-1">
+        <ConversationContent>
+          {messages.map((message) => (
+            <Message from={message.role} key={message.id}>
+              <MessageContent>
+                {message.parts.map((part, index) => {
+                  switch (part.type) {
+                    case "text":
+                      return (
+                        <Response key={`${message.id}-${index}`}>
+                          {part.text}
+                        </Response>
+                      );
 
-              // Handle tool parts for generateTextToImage
-              case "tool-generateTextToImage": {
-                const callId = part.toolCallId;
+                    case "tool-generateTextToImage": {
+                      const callId = part.toolCallId;
 
-                switch (part.state) {
-                  case "input-streaming":
-                    return (
-                      <div key={callId}>Preparing to generate image...</div>
-                    );
-                  case "input-available":
-                    return (
-                      <div key={callId}>
-                        Generating image: "{part.input.prompt}"
-                      </div>
-                    );
-                  case "output-available":
-                    return (
-                      <div key={callId}>
-                        {part.output?.url ? (
-                          <img
-                            src={part.output.url}
-                            alt="Generated image"
-                            style={{ maxWidth: "100%", height: "auto" }}
-                          />
-                        ) : (
-                          "No image generated"
-                        )}
-                      </div>
-                    );
-                  case "output-error":
-                    return <div key={callId}>Error: {part.errorText}</div>;
-                }
-                break;
-              }
+                      switch (part.state) {
+                        case "input-streaming":
+                          return (
+                            <div
+                              key={callId}
+                              className="flex items-center gap-2 text-muted-foreground"
+                            >
+                              <Loader />
+                              Preparing to generate image...
+                            </div>
+                          );
+                        case "input-available":
+                          return (
+                            <div key={callId} className="space-y-2">
+                              <div className="flex items-center gap-2 text-muted-foreground">
+                                <Loader />
+                                Generating image: "
+                                {(part.input as GenerateImageInput).prompt}"
+                              </div>
+                            </div>
+                          );
+                        case "output-available":
+                          return (
+                            <div key={callId} className="space-y-2">
+                              <p className="text-sm text-green-600">
+                                ✓ Image generated and added to canvas
+                              </p>
+                            </div>
+                          );
+                        case "output-error":
+                          return (
+                            <div key={callId} className="text-destructive">
+                              Error: {part.errorText}
+                            </div>
+                          );
+                      }
+                      break;
+                    }
 
-              default:
-                return null;
-            }
-          })}
-          <br />
-        </div>
-      ))}
+                    default:
+                      return null;
+                  }
+                })}
+              </MessageContent>
+            </Message>
+          ))}
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (input.trim()) {
-            sendMessage({ text: input });
-            setInput("");
-          }
-        }}
-      >
-        <input
-          value={input}
+          {status === "submitted" && (
+            <Message from="assistant">
+              <MessageContent>
+                <div className="flex items-center gap-2">
+                  <Loader />
+                  <span className="text-muted-foreground">Thinking...</span>
+                </div>
+              </MessageContent>
+            </Message>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      <PromptInput onSubmit={handleSubmit} className="border-t p-4">
+        <PromptInputTextarea
           onChange={(e) => setInput(e.target.value)}
-          disabled={status !== "ready"}
+          value={input}
           placeholder="Ask me to generate an image..."
         />
-        <button type="submit" disabled={status !== "ready"}>
-          Send
-        </button>
-      </form>
-    </>
+        <PromptInputSubmit disabled={!input} status={status} />
+      </PromptInput>
+    </div>
   );
 }

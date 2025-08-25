@@ -9,7 +9,7 @@ export async function POST(req: Request) {
   const { messages }: { messages: UIMessage[] } = await req.json();
 
   const result = streamText({
-    model: openai("gpt-4o"),
+    model: openai("gpt-4o-mini"),
     system:
       "You are a helpful assistant that can generate images. When the user asks you to create or generate an image, use the generateTextToImage tool. Otherwise reply as a helpful assistant",
     messages: convertToModelMessages(messages),

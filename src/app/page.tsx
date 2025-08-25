@@ -3985,22 +3985,23 @@ export default function OverlayPage() {
       />
 
       {/* Chat UI */}
-      <div className="fixed right-4 bottom-20 md:bottom-4 z-50">
+      <div className="fixed right-4 top-4 bottom-4 z-50">
         <AnimatePresence>
           {!showChat && (
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
+              className="absolute bottom-0 right-0"
             >
               <Button
                 onClick={() => setShowChat(true)}
-                className="shadow-lg"
+                className="shadow-lg rounded-full h-14 w-14 md:w-auto md:h-auto md:rounded-lg"
                 variant="primary"
                 size="lg"
               >
-                <MessageCircle className="h-5 w-5 mr-2" />
-                Chat
+                <MessageCircle className="h-5 w-5 md:mr-2" />
+                <span className="hidden md:inline">Chat</span>
               </Button>
             </motion.div>
           )}
@@ -4009,23 +4010,34 @@ export default function OverlayPage() {
         <AnimatePresence>
           {showChat && (
             <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              initial={{ opacity: 0, x: 20, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: 20, scale: 0.95 }}
               transition={{ duration: 0.2 }}
-              className="bg-background border rounded-2xl shadow-2xl w-[90vw] md:w-96 h-[70vh] md:h-[600px] overflow-hidden flex flex-col"
+              className="bg-card border rounded-2xl shadow-2xl w-[95vw] md:w-[500px] lg:w-[500px] h-full overflow-hidden flex flex-col"
             >
-              <div className="p-4 border-b flex items-center justify-between shrink-0">
-                <h3 className="font-semibold">AI Assistant</h3>
+              <div className="p-4 border-b flex items-center justify-between shrink-0 bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                    <MessageCircle className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold">AI Assistant</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Powered by GPT-4
+                    </p>
+                  </div>
+                </div>
                 <Button
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => setShowChat(false)}
+                  className="hover:bg-muted"
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex-1 overflow-hidden">
+              <div className="flex-1 overflow-hidden bg-background">
                 <Chat
                   onImageGenerated={handleChatImageGenerated}
                   customApiKey={customApiKey}
