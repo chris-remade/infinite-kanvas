@@ -22,22 +22,11 @@ import {
 } from "@/components/ai-elements/prompt-input";
 import { Response } from "@/components/ai-elements/response";
 import { Loader } from "@/components/ai-elements/loader";
+import { styleModels } from "@/lib/models";
 
 interface ChatProps {
   onImageGenerated?: (imageUrl: string) => void;
   customApiKey?: string;
-}
-
-interface GenerateImageInput {
-  prompt: string;
-  imageSize?: string;
-}
-
-interface GenerateImageOutput {
-  url: string;
-  width: number;
-  height: number;
-  seed?: number;
 }
 
 export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
@@ -64,15 +53,32 @@ export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
 
       if (toolCall.toolName === "generateTextToImage") {
         try {
-          // Extract the tool input with type safety
-          const { prompt } = toolCall.input as {
+          // Extract the tool input with style support
+          const { prompt, style, imageSize } = toolCall.input as {
             prompt: string;
+            style?: string;
+            imageSize?: "square";
           };
 
-          // Call the tRPC mutation
+          // Find the style model if specified
+          let selectedStyle = styleModels.find((m) => m.id === "simpsons"); // default
+          if (style) {
+            const foundStyle = styleModels.find((m) => m.id === style);
+            if (foundStyle) {
+              selectedStyle = foundStyle;
+            }
+          }
+
+          // Combine the style prompt with user prompt
+          const finalPrompt = selectedStyle
+            ? `${prompt}, ${selectedStyle.prompt}`
+            : prompt;
+
+          // Call the tRPC mutation with LoRA
           const result = await generateTextToImage({
-            prompt,
+            prompt: finalPrompt,
             imageSize: "square",
+            loraUrl: selectedStyle?.loraUrl,
             apiKey: customApiKey,
           });
 
@@ -81,11 +87,11 @@ export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
             onImageGenerated(result.url);
           }
 
-          // ADD THIS: Tell the AI SDK the tool execution is complete
+          // Tell the AI SDK the tool execution is complete
           addToolResult({
             tool: "generateTextToImage",
             toolCallId: toolCall.toolCallId,
-            output: "Image generated and added to canvas",
+            output: `Image generated in ${selectedStyle?.name || "default"} and added to canvas`,
           });
         } catch (error) {
           console.error("Error generating image:", error);
@@ -147,20 +153,44 @@ export default function Chat({ onImageGenerated, customApiKey }: ChatProps) {
                             </div>
                           );
                         case "input-available":
+                          const input = part.input as {
+                            prompt: string;
+                            style?: string;
+                          };
+                          const styleName = input.style
+                            ? styleModels.find((m) => m.id === input.style)
+                                ?.name || input.style
+                            : "Default";
+
                           return (
-                            <div key={callId} className="space-y-2">
+                            <div key={callId} className="space-y-1">
                               <div className="flex items-center gap-2 text-muted-foreground">
                                 <Loader />
-                                Generating image: "
-                                {(part.input as GenerateImageInput).prompt}"
+                                Generating image: "{input.prompt}"
                               </div>
+                              {input.style && (
+                                <div className="flex items-center gap-2 ml-6">
+                                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                  <span className="text-purple-600 font-medium text-xs">
+                                    Using {styleName} LoRA...
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           );
                         case "output-available":
+                          const outputInput = part.input as { style?: string };
+                          const outputStyleName = outputInput.style
+                            ? styleModels.find(
+                                (m) => m.id === outputInput.style,
+                              )?.name || outputInput.style
+                            : "Default";
+
                           return (
                             <div key={callId} className="space-y-2">
                               <p className="text-sm text-green-600">
-                                ✓ Image generated and added to canvas
+                                ✓ Image generated in {outputStyleName} style and
+                                added to canvas
                               </p>
                             </div>
                           );

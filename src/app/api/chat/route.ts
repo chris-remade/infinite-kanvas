@@ -11,26 +11,41 @@ export async function POST(req: Request) {
   const result = streamText({
     model: openai("gpt-4o-mini"),
     system:
-      "You are a helpful assistant that can generate images. When the user asks you to create or generate an image, use the generateTextToImage tool. Otherwise reply as a helpful assistant",
+      "You are a helpful assistant that can generate images. When the user asks you to create or generate an image, use the generateTextToImage tool. You can suggest different styles like anime, cartoon, realistic, etc. and the system will automatically apply the appropriate LoRA.",
     messages: convertToModelMessages(messages),
     tools: {
-      // Client-side tool - no execute function
       generateTextToImage: {
-        description: "Generate an image from a text prompt",
+        description: "Generate an image from a text prompt with optional style",
         inputSchema: z.object({
           prompt: z
             .string()
             .describe("The text prompt to generate an image from"),
           imageSize: z
+            .enum(["square"])
+            .default("square")
+            .describe(
+              "The aspect ratio of the generated image. Always use 'square' format.",
+            ),
+          style: z
             .enum([
-              "landscape_4_3",
-              "portrait_4_3",
-              "square",
-              "landscape_16_9",
-              "portrait_16_9",
+              "simpsons",
+              "lego",
+              "anime",
+              "pixel",
+              "clay",
+              "ghibli",
+              "watercolor",
+              "pencil_drawing",
+              "minimalist",
+              "3d",
+              "plushie",
+              "metallic",
+              "snoopy",
+              "jojo",
+              "americancartoon",
             ])
             .optional()
-            .describe("The aspect ratio of the generated image"),
+            .describe("The artistic style to apply to the image"),
         }),
       },
     },
